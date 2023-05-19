@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="7.0.5" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microled.Pix.Application\Microled.Pix.Application.csproj" />
+    <ProjectReference Include="..\Microled.Pix.Domain\Microled.Pix.Domain.csproj" />
+    <ProjectReference Include="..\Microled.Pix.Infra\Microled.Pix.Infra.csproj" />
+  </ItemGroup>
+
+</Project>
