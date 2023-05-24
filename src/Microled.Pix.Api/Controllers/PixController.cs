@@ -1,7 +1,7 @@
 using Microled.Pix.Application.Interface;
 using Microled.Pix.Domain.Interfaces;
 using Microled.Pix.Domain.Request;
-using Microled.Pix.Domain.Response;
+using Microled.Pix.Domain.Response.QrCodeVencimento;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Microled.Pix.Api.Controllers;

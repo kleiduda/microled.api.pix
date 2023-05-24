@@ -1,5 +1,5 @@
 ﻿using Microled.Pix.Domain.Request;
-using Microled.Pix.Domain.Response;
+using Microled.Pix.Domain.Response.QrCodeVencimento;
 
 namespace Microled.Pix.Application.Interface
 {

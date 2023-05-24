@@ -38,5 +38,11 @@ namespace Microled.Pix.Infra.Helpers
 
             return responseBody;
         }
+
+        public void VerificarPagamentosPix()
+        {
+            //chamar api microled passando CHAVE / TXID
+            throw new NotImplementedException();
+        }
     }
 }

@@ -6,5 +6,6 @@ namespace Microled.Pix.Infra.Helpers.Interfaces
     public interface IPixHelper
     {
         Task<string> getAuthenticationToken(BankCredentials credentials);
+        void VerificarPagamentosPix();
     }
 }

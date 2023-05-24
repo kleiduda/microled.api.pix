@@ -12,7 +12,7 @@ namespace Microled.Pix.Infra.Http
             _httpClient = new HttpClient();
         }
 
-        protected async Task<HttpResponseMessage> SendAsync(HttpMethod method, string url, string jsonBody = null)
+        protected async Task<HttpResponseMessage> SendAsync(HttpMethod method, string url, string jsonBody = null, string accessToken = null)
         {
             var request = new HttpRequestMessage(method, url);
 
@@ -20,6 +20,11 @@ namespace Microled.Pix.Infra.Http
             {
                 var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
                 request.Content = content;
+            }
+
+            if (!string.IsNullOrEmpty(accessToken))
+            {
+                request.Headers.Add("Authorization", $"Bearer {accessToken}");
             }
 
             var response = await _httpClient.SendAsync(request);
