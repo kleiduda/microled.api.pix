@@ -3,8 +3,8 @@ using Microled.Pix.Domain.Response;
 
 namespace Microled.Pix.Application.Interface
 {
-    public interface IPixQrCodeService
+    public interface IPixItauService
     {
-        Task<PagamentoResponse> CreateNewQrCodePix(PagamentoRequest request);
+        Task<ServiceResult<PagamentoResponse>> CreateNewQrCodePix(PagamentoRequest request);
     }
 }

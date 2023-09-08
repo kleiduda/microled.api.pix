@@ -12,9 +12,19 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+});
+
 //dependency injection
-builder.Services.AddScoped<IPixHelper, PixHelpers>();
-builder.Services.AddScoped<IPixQrCodeService, PixQrCodeService>();
+builder.Services.AddScoped<IPixBradescoHelper, PixBradescoHelpers>();
+builder.Services.AddScoped<IPixBradescoService, PixBradescoService>();
+
+builder.Services.AddScoped<IPixItauHelper, PixItauHelpers>();
+builder.Services.AddScoped<IPixItauService, PixItauService>();
+
+
 
 var app = builder.Build();
 
