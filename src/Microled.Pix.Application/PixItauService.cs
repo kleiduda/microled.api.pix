@@ -42,11 +42,11 @@ namespace Microled.Pix.Application
                     _serviceResult.Result = new PagamentoResponse()
                     {
                         IdEmpresa = 1,
-                        Pagamento = 1, //verificar de onde vem esse valor
+                        Pagamento = "", //verificar de onde vem esse valor
                         Empresa = "DEICMAR BANDEIRANTES",
                         Processo = 1, //vericiar que valor seria esse
                         NumeroTitulo = request.Numero_Titulo,
-                        StatusPagamento = EStatusPagamento.Ativa,
+                        StatusPagamento = "ATIVA",
                         QRCode_Imagem_base64 = GenerateQRCodeBase64("http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA"),
                         Pix_Link = "http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
                         QRCode_Texto_EMV = "http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
@@ -60,12 +60,12 @@ namespace Microled.Pix.Application
                     {
                         Calendario = new Calendario() { DataDeVencimento = request.Data_Hora_Expiracao_Pagamento },
                         Devedor = new Devedor() { Nome = request.Devedor_Nome, Cpf = request.Devedor_CPF },
-                        Valor = new Valor() { Original = request.Valor.ToString() },
+                        Valor = new Valor() { Original = request.Valor },
                         Chave = chavePix,
                         SolicitacaoPagador = request.Solicitacao_Pagador
                     };
 
-                    _serviceResult = await _helper.UpdateCobvEmvData(accesToken, request.Numero_Titulo, requestData);
+                    _serviceResult = await _helper.UpdateCobvEmvData(accesToken,  requestData);
 
                 }
 

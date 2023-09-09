@@ -1,13 +1,17 @@
 ﻿using Microled.Pix.Domain.Request.Bradesco;
 using Microled.Pix.Domain.Response;
+using Microled.Pix.Domain.Response.Bradesco;
+using Microled.Pix.Domain.Response.PixBradesco;
 using Microled.Pix.Domain.ViewModel;
 using Microled.Pix.Infra.Helpers.Interfaces;
 using Microled.Pix.Infra.Http;
 using Microsoft.Extensions.Configuration;
+using System.Linq.Expressions;
 using System.Net.Http.Headers;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Microled.Pix.Infra.Helpers
 {
@@ -27,9 +31,11 @@ namespace Microled.Pix.Infra.Helpers
 
             _httpClient = new HttpClient(handler);
         }
+
+
         public async Task<string> GetAuthenticationToken(BankCredentials credentials)
         {
-            string url = _configuration.GetSection("UrlsPixBradesco:authentication").Value;
+            string url = _configuration.GetSection("UrlsPixBradesco:authentication").Value ?? "";
 
             try
             {
@@ -55,7 +61,6 @@ namespace Microled.Pix.Infra.Helpers
                 }
                 else
                 {
-                    // Você pode incluir aqui mais lógica específica baseada em diferentes códigos de status se necessário.
                     var errorResponse = await response.Content.ReadAsStringAsync();
                     throw new HttpRequestException($"Error {(int)response.StatusCode}: {errorResponse}");
                 }
@@ -66,11 +71,13 @@ namespace Microled.Pix.Infra.Helpers
             }
         }
 
-
-        public async Task<ServiceResult<PagamentoResponse>> UpdateCobvEmvData(string token, string txid, RequestDataBradesco requestData)
+        public async Task<ServiceResult<PagamentoResponse>> UpdateCobvEmvData(string token, RequestDataBradesco requestData)
         {
             ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
-            string url = _configuration.GetSection("UrlsPixBradesco:homolog_url").Value + "/v2/cobv-emv/" + txid;
+            string _txId = CreateNewTxId();
+
+
+            string url = _configuration.GetSection("UrlsPixBradesco:homolog_url").Value + "/v2/cobv-emv/" + _txId;
 
             try
             {
@@ -78,23 +85,40 @@ namespace Microled.Pix.Infra.Helpers
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
                 // Convertendo o objeto de requestData para JSON
-                var jsonString = JsonSerializer.Serialize(requestData);
-                var content = new StringContent(jsonString, System.Text.Encoding.UTF8, "application/json");
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = true,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+                var jsonString = JsonSerializer.Serialize(requestData, options);
+                var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
 
                 var response = await _httpClient.PutAsync(url, content);
                 response.EnsureSuccessStatusCode();
 
                 var responseBody = await response.Content.ReadAsStringAsync();
-
-                PagamentoResponse responseData = new PagamentoResponse();
                 if (responseBody != null)
                 {
-                    _serviceResult.Result = responseData;
+                    BradescoPixResponse pixResponse = JsonSerializer.Deserialize<BradescoPixResponse>(responseBody);
+                    PagamentoResponse pagamentoResponse = new PagamentoResponse()
+                    {
+                        IdEmpresa = 1,
+                        Pagamento = pixResponse.cobv.txid,
+                        Empresa = pixResponse.cobv.recebedor.nome,
+                        Processo = 1,
+                        StatusPagamento = pixResponse.cobv.status,
+                        QRCode_Imagem_base64 = pixResponse.base64,
+                        Pix_Link = pixResponse.emv,
+                        QRCode_Texto_EMV = pixResponse.emv,
+                        ValorRet = Convert.ToDecimal(pixResponse.cobv.valor.original),
+
+
+                    };
+
+                    _serviceResult.Result = pagamentoResponse;
+
                 }
-
-
-                //validar o retorno e tratar para enviar no pagamento response
-
                 return _serviceResult;
             }
             catch (Exception ex)
@@ -104,5 +128,64 @@ namespace Microled.Pix.Infra.Helpers
             }
 
         }
+
+        public async Task<ServiceResult<PagamentoResponse>> ConsultarQrCodePix(string token, string txId)
+        {
+            ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
+            //
+            string url = _configuration.GetSection("UrlsPixBradesco:homolog_url").Value + "/v2/cobv/" + txId;
+            try
+            {
+                // Adicionar o token ao header de autorização
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                // var content = new StringContent(Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+
+                var responseBody = await response.Content.ReadAsStringAsync();
+                if (responseBody != null)
+                {
+                    ConsultaQrCodeResponse pixResponse = JsonSerializer.Deserialize<ConsultaQrCodeResponse>(responseBody);
+                    PagamentoResponse pagamentoResponse = new PagamentoResponse()
+                    {
+                        IdEmpresa = 1,
+                        Pagamento = pixResponse.txid,
+                        Empresa = pixResponse.recebedor.nome,
+                        Processo = 1,
+                        StatusPagamento = pixResponse.status,
+                        QRCode_Imagem_base64 = "",
+                        Pix_Link = pixResponse.pixCopiaECola,
+                        QRCode_Texto_EMV = pixResponse.pixCopiaECola,
+                        ValorRet = Convert.ToDecimal(pixResponse.valor.original)
+
+                    };
+
+                    _serviceResult.Result = pagamentoResponse;
+
+                }
+            }
+            catch (Exception ex)
+            {
+                _serviceResult.Error = ex.Message;
+                return _serviceResult;
+            }
+
+            return _serviceResult;
+        }
+
+        private string CreateNewTxId()
+        {
+            Guid guid = Guid.NewGuid();
+            string txId = guid.ToString("N");
+
+            if (txId.Length > 35)
+            {
+                txId = txId.Substring(0, 35);
+            }
+
+            return txId;
+        }
+
     }
 }

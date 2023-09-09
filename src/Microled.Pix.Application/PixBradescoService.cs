@@ -10,6 +10,7 @@ using System.Drawing;
 using System.Net.NetworkInformation;
 using ZXing;
 using Microled.Pix.Domain.Enum;
+using System.Text.Json;
 
 namespace Microled.Pix.Application
 {
@@ -25,33 +26,36 @@ namespace Microled.Pix.Application
 
         public async Task<ServiceResult<PagamentoResponse>> CreateNewQrCodePix(PagamentoRequest request)
         {
-            string chavePix = "4581f4b7-957f-4aba-9ae8-c1c174e9452c"; //CHAVE PIX DE HOMOLOG
+            string chavePix = _configuration.GetSection("CredenciaisBradesco:chave-pix").Value ?? ""; //CHAVE PIX DE HOMOLOG
             ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
             BankCredentials credentials = new BankCredentials();
-            credentials.ClientId = _configuration.GetSection("CredenciaisBradesco:client_id").Value;
-            credentials.ClientSecret = _configuration.GetSection("CredenciaisBradesco:client_secret").Value;
+            credentials.ClientId = _configuration.GetSection("CredenciaisBradesco:client_id").Value ?? "";
+            credentials.ClientSecret = _configuration.GetSection("CredenciaisBradesco:client_secret").Value ?? "";
 
             try
             {
-                string accesToken = await _helper.GetAuthenticationToken(credentials);
+                string tokenJson = await _helper.GetAuthenticationToken(credentials);
+                TokenResponse tokenResponse = JsonSerializer.Deserialize<TokenResponse>(tokenJson);
+
+                string accessToken = tokenResponse.access_token;
 
                 //fazer requisicao ao endpoint do pix vencimento bradesco
-                if (accesToken.Contains("Error"))
+                if (accessToken.Contains("Error"))
                 {
-                    _serviceResult.Mensagens = new List<string>() { "Token não validado!" + accesToken };
+                    _serviceResult.Mensagens = new List<string>() { "Token não validado!" + accessToken };
                     _serviceResult.Result = new PagamentoResponse()
                     {
                         IdEmpresa = 1,
-                        Pagamento = 1, //verificar de onde vem esse valor
+                        Pagamento = "", //verificar de onde vem esse valor
                         Empresa = "DEICMAR BANDEIRANTES",
                         Processo = 1, //vericiar que valor seria esse
                         NumeroTitulo = request.Numero_Titulo,
-                        StatusPagamento = EStatusPagamento.Ativa,
+                        StatusPagamento = "ATIVA",
                         QRCode_Imagem_base64 = GenerateQRCodeBase64("http://h.bradesco.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA"),
                         Pix_Link = "http://h.bradesco.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
                         QRCode_Texto_EMV = "http://h.bradesco.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
                         ValorRet = request.Valor,
-                        Emails_Aviso_Pagamento = new List<string>() { request.Emails_Aviso_Pagamento.FirstOrDefault()}
+                        Emails_Aviso_Pagamento = new List<string>() { request.Emails_Aviso_Pagamento.FirstOrDefault() }
                     };
                 }
                 else
@@ -60,12 +64,12 @@ namespace Microled.Pix.Application
                     {
                         Calendario = new Calendario() { DataDeVencimento = request.Data_Hora_Expiracao_Pagamento },
                         Devedor = new Devedor() { Nome = request.Devedor_Nome, Cpf = request.Devedor_CPF },
-                        Valor = new Valor() { Original = request.Valor.ToString() },
+                        Valor = new Valor() { Original = request.Valor },
                         Chave = chavePix,
                         SolicitacaoPagador = request.Solicitacao_Pagador
                     };
 
-                    _serviceResult = await _helper.UpdateCobvEmvData(accesToken, request.Numero_Titulo, requestData);
+                    _serviceResult = await _helper.UpdateCobvEmvData(accessToken, requestData);
 
                 }
 
@@ -75,6 +79,32 @@ namespace Microled.Pix.Application
             {
                 _serviceResult.Error = ex.Message;
                 _serviceResult.Mensagens = new List<string>() { "Erro ao fazer a requisicao para API Bradesco:" + ex.Message };
+                return _serviceResult;
+            }
+
+        }
+
+        public async Task<ServiceResult<PagamentoResponse>> ConsultarQrCodePix(string txId)
+        {
+            ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
+            BankCredentials credentials = new BankCredentials();
+            credentials.ClientId = _configuration.GetSection("CredenciaisBradesco:client_id").Value ?? "";
+            credentials.ClientSecret = _configuration.GetSection("CredenciaisBradesco:client_secret").Value ?? "";
+
+            try
+            {
+                string tokenJson = await _helper.GetAuthenticationToken(credentials);
+                TokenResponse tokenResponse = JsonSerializer.Deserialize<TokenResponse>(tokenJson);
+
+                string accessToken = tokenResponse.access_token;
+                _serviceResult = await _helper.ConsultarQrCodePix(accessToken, txId);
+
+                return _serviceResult;
+            }
+            catch (Exception ex)
+            {
+                _serviceResult.Error = ex.Message;
+                _serviceResult.Mensagens = new List<string>() { "Erro na consulta API Bradesco:" + ex.Message };
                 return _serviceResult;
             }
 
