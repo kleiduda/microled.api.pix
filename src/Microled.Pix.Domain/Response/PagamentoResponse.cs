@@ -16,5 +16,23 @@ namespace Microled.Pix.Domain.Response
         public decimal ValorRet { get; set; }
         public List<string> Emails_Aviso_Pagamento { get; set; }
 
+        public static PagamentoResponse CriarPagamento(int idEmpresa, string pagamento, string empresa, int processo, string numeroTitulo, string statusPagamento, string qrCode,
+            string pixLink, string qrcodeTexto, decimal valorRet, List<string> emails)
+        {
+            var pagto = new PagamentoResponse();
+            pagto.IdEmpresa = idEmpresa;
+            pagto.Pagamento = pagamento;
+            pagto.Empresa = empresa;
+            pagto.Processo = processo;
+            pagto.NumeroTitulo = numeroTitulo;
+            pagto.StatusPagamento = statusPagamento;
+            pagto.QRCode_Imagem_base64 = qrCode;
+            pagto.Pix_Link = pixLink;
+            pagto.QRCode_Texto_EMV = qrcodeTexto;
+            pagto.ValorRet = valorRet;
+            pagto.Emails_Aviso_Pagamento = emails;
+
+            return pagto;
+        }
     }
 }

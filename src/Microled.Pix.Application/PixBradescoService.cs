@@ -46,7 +46,7 @@ namespace Microled.Pix.Application
                     _serviceResult.Result = new PagamentoResponse()
                     {
                         IdEmpresa = 1,
-                        Pagamento = "", //verificar de onde vem esse valor
+                        Pagamento = "1", //verificar de onde vem esse valor
                         Empresa = "DEICMAR BANDEIRANTES",
                         Processo = 1, //vericiar que valor seria esse
                         NumeroTitulo = request.Numero_Titulo,

@@ -6,54 +6,60 @@
         public Devedor Devedor { get; set; }
         public Valor Valor { get; set; }
         public string Chave { get; set; }
-        public string SolicitacaoPagador { get; set; }
+
+        public static RequestDataItau Create(Calendario calendario, Devedor devedor, Valor valor, string chave)
+        {
+            RequestDataItau request = new RequestDataItau();
+            request.Calendario = calendario;
+            request.Devedor = devedor;
+            request.Valor = valor;
+            request.Chave = chave;
+
+            return request;
+        }
 
     }
     public class Calendario
     {
         public string DataDeVencimento { get; set; }
         public int ValidadeAposVencimento { get; set; }
+        public static Calendario Create(string dataVencimento, int validadeAposVencimento)
+        {
+            var calendario = new Calendario();
+            calendario.DataDeVencimento = dataVencimento;
+            calendario.ValidadeAposVencimento= validadeAposVencimento;
+
+            return calendario;
+        }
     }
 
     public class Devedor
     {
-        public string Logradouro { get; set; }
-        public string Cidade { get; set; }
-        public string Uf { get; set; }
-        public string Cep { get; set; }
         public string Cpf { get; set; }
+        public string Cnpj { get; set; }
         public string Nome { get; set; }
-    }
 
-    public class Multa
-    {
-        public string Modalidade { get; set; }
-        public string ValorPerc { get; set; }
-    }
+        public static Devedor Create(string cpf, string cnpj, string nome)
+        {
+            var devedor = new Devedor();
+            devedor.Cpf = cpf;
+            devedor.Cnpj = cnpj;
+            devedor.Nome = nome;
 
-    public class Juros
-    {
-        public string Modalidade { get; set; }
-        public string ValorPerc { get; set; }
-    }
-
-    public class DescontoDataFixa
-    {
-        public string Data { get; set; }
-        public string ValorPerc { get; set; }
-    }
-
-    public class Desconto
-    {
-        public string Modalidade { get; set; }
-        public List<DescontoDataFixa> DescontoDataFixa { get; set; }
+            return devedor;
+        }
     }
 
     public class Valor
     {
-        public string Original { get; set; }
-        public Multa Multa { get; set; }
-        public Juros Juros { get; set; }
-        public Desconto Desconto { get; set; }
+        public decimal Original { get; set; }
+
+        public static Valor Create(decimal original)
+        {
+            Valor valor = new Valor();
+            valor.Original = original;
+
+            return valor;
+        }
     }
 }

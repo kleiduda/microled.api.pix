@@ -25,7 +25,7 @@ namespace Microled.Pix.Infra.Helpers
             _configuration = configuration;
 
             var handler = new HttpClientHandler();
-            var certPath = @"C:\dev\microled\BRADESCO\certificados\BANDEIRANTES_DEICMAR_LOGISTICA_INTEGRADA_S_A_58188756000196_1677184234793938700.pfx";
+            var certPath = @"C:\dev\ITAU\certificado\BANDEIRANTES_DEICMAR_LOGISTICA_INTEGRADA_S_A_58188756000196_1677184234793938700.pfx";
             var certificate = new X509Certificate2(certPath, "12345678");
             handler.ClientCertificates.Add(certificate);
 
@@ -104,7 +104,7 @@ namespace Microled.Pix.Infra.Helpers
                     PagamentoResponse pagamentoResponse = new PagamentoResponse()
                     {
                         IdEmpresa = 1,
-                        Pagamento = pixResponse.cobv.txid,
+                        Pagamento = "1",//pixResponse.cobv.txid,
                         Empresa = pixResponse.cobv.recebedor.nome,
                         Processo = 1,
                         StatusPagamento = pixResponse.cobv.status,
@@ -112,7 +112,7 @@ namespace Microled.Pix.Infra.Helpers
                         Pix_Link = pixResponse.emv,
                         QRCode_Texto_EMV = pixResponse.emv,
                         ValorRet = Convert.ToDecimal(pixResponse.cobv.valor.original),
-
+                        
 
                     };
 
