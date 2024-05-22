@@ -2,11 +2,13 @@
 using Microled.Pix.Domain.Request.Itau;
 using Microled.Pix.Domain.Response;
 using Microled.Pix.Domain.Response.itau;
+using Microled.Pix.Domain.Response.itau.lista;
 using Microled.Pix.Domain.ViewModel;
 using Microled.Pix.Infra.Helpers.Interfaces;
 using Microled.Pix.Infra.Http;
 using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;
+using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
@@ -27,11 +29,14 @@ namespace Microled.Pix.Infra.Helpers
         private HttpClient CreateHttpClient()
         {
             var handler = new HttpClientHandler();
+            var certPath = _configuration["CredenciaisItau:certificado"];
+            var keyPath = _configuration["CredenciaisItau:key"];
+            var certPassword = _configuration["CredenciaisItau:password"];
+            // var certPassword = Encoding.UTF8.GetString(Convert.FromBase64String(certPasswordBase64));
+
 
             try
             {
-                var certPath = _configuration["CredenciaisItau:certificado"];
-                var certPassword = _configuration["CredenciaisItau:password"]; 
 
                 if (File.Exists(certPath))
                 {
@@ -45,8 +50,7 @@ namespace Microled.Pix.Infra.Helpers
             }
             catch (Exception ex)
             {
-                // Logue aqui o erro
-                throw new InvalidOperationException("Falha ao carregar o certificado.", ex);
+                throw new InvalidOperationException("Falha ao carregar o certificado." + certPath + " - Pass: " + certPassword, ex);
             }
 
             return new HttpClient(handler);
@@ -149,7 +153,6 @@ namespace Microled.Pix.Infra.Helpers
                 }
                 else
                 {
-                    // Você pode incluir aqui mais lógica específica baseada em diferentes códigos de status se necessário.
                     var errorResponse = await response.Content.ReadAsStringAsync();
                     throw new HttpRequestException($"Error {(int)response.StatusCode}: {errorResponse}");
                 }
@@ -239,6 +242,46 @@ namespace Microled.Pix.Infra.Helpers
 
 
                 ResponseBodyItau responseData = JsonSerializer.Deserialize<ResponseBodyItau>(responseBody);
+
+                _serviceResult.Result = responseData;
+
+                return _serviceResult;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception: {ex.Message}");
+                _serviceResult.Error = ex.Message;
+                return _serviceResult;
+            }
+        }
+
+        public async Task<ServiceResult<List<ResponseListPixItau>>> ListaPix(string dataInicio, string dataFim, string token)
+        {
+            ServiceResult<List<ResponseListPixItau>> _serviceResult = new ServiceResult<List<ResponseListPixItau>>();
+            string baseUrl = _configuration.GetSection("UrlsPixItau:lista_pix").Value;
+
+            try
+            {
+                // Adicionar o token ao header de autorização
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                // Montar a URL com os parâmetros de query
+                string url = $"{baseUrl}?inicio={dataInicio}&fim={dataFim}";
+
+                Console.WriteLine($"Request URL: {url}");
+
+                var response = await _httpClient.GetAsync(url);
+
+                var responseBody = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"HTTP Error: {response.StatusCode}");
+                    Console.WriteLine($"Response Body: {responseBody}");
+                    _serviceResult.Error = responseBody;
+                    return _serviceResult;
+                }
+
+                List<ResponseListPixItau> responseData = JsonSerializer.Deserialize<List<ResponseListPixItau>>(responseBody);
 
                 _serviceResult.Result = responseData;
 

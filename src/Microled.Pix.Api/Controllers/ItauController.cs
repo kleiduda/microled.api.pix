@@ -42,6 +42,13 @@ public class ItauController : ControllerBase
     }
 
     [HttpPost]
+    [Route("itau/pix/lista")]
+    public async Task<ServiceResult<PagamentoResponse>> GetListaPix([FromQuery] string dataInicio, string dataFim, string token)
+    {
+        return await _qrCodeService.ListaPix(dataInicio, dataFim, token);
+    }
+
+    [HttpPost]
     [Route("itau/pix/cancelamento")]
     public async Task<ServiceResult<PagamentoResponse>> CancelarPagamentoPix([FromBody] CancelamentoRequest request)
     {

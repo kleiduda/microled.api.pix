@@ -10,6 +10,7 @@ namespace Microled.Pix.Application.Interface
         Task<ServiceResult<PagamentoResponse>> CreateNewQrCodePix(PagamentoRequest request);
         Task<ServiceResult<PagamentoResponse>> CancelamentoPix(CancelamentoRequest request);
         Task<ServiceResult<PagamentoResponse>> ConsultaPix(string txId, string token);
+        Task<ServiceResult<PagamentoResponse>> ListaPix(string dataInicio, string dataFim, string token);
         Task<ServiceResult<string>> BaixaTituloPix(string txId);
     }
 }

@@ -15,6 +15,7 @@ using Microled.Pix.Domain.Request.Itau.Cancelamento;
 using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Microled.Pix.Application
 {
@@ -47,32 +48,26 @@ namespace Microled.Pix.Application
                                                                       chavePix);
 
                     var response = await _helper.NewCobPixQRCODE(request.Token, request.GerarTxID(), dataItau);
-                    //_serviceResult.Mensagens = new List<string>() { "Token não validado!" + accesToken };
-                    _serviceResult.Result = PagamentoResponse.CriarPagamento(1, 
-                                                                             response.Result.txid, 
-                                                                             response.Result.recebedor.nome,
-                                                                             1,
-                                                                             request.Numero_Titulo,
-                                                                             response.Result.status,
-                                                                             GenerateQRCodeBase64(response.Result.pixCopiaECola),
-                                                                             response.Result.loc.location,
-                                                                             response.Result.pixCopiaECola,
-                                                                             Convert.ToDecimal(response.Result.valor.original),
-                                                                             request.Emails_Aviso_Pagamento
-                                                                             );
-                    //{
-                    //    IdEmpresa = 1,
-                    //    Pagamento = Convert.ToInt32(request.Numero_Titulo), //verificar de onde vem esse valor
-                    //    Empresa = "DEICMAR BANDEIRANTES",//
-                    //    Processo = 1, //vericiar que valor seria esse
-                    //    NumeroTitulo = request.Numero_Titulo,
-                    //    StatusPagamento = "ATIVA",
-                    //    QRCode_Imagem_base64 = GenerateQRCodeBase64("http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA"),
-                    //    Pix_Link = "http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
-                    //    QRCode_Texto_EMV = "http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
-                    //    ValorRet = request.Valor,
-                    //    Emails_Aviso_Pagamento = new List<string>() { request.Emails_Aviso_Pagamento.FirstOrDefault() }
-                    //};
+                    if (!string.IsNullOrEmpty(response.Error))
+                    {
+                        _serviceResult.Error = response.Error;
+                    }
+                    else
+                    {
+                        _serviceResult.Result = PagamentoResponse.CriarPagamento(1,
+                                                                            response.Result.txid,
+                                                                            response.Result.recebedor.nome,
+                                                                            1,
+                                                                            request.Numero_Titulo,
+                                                                            response.Result.status,
+                                                                            GenerateQRCodeBase64(response.Result.pixCopiaECola),
+                                                                            response.Result.loc.location,
+                                                                            response.Result.pixCopiaECola,
+                                                                            Convert.ToDecimal(response.Result.valor.original),
+                                                                            request.Emails_Aviso_Pagamento
+                                                                            );
+                    }
+
                 }
                 else
                 {
@@ -90,31 +85,117 @@ namespace Microled.Pix.Application
             }
 
         }
+        //public async Task<ServiceResult<TokenResponse>> GetToken()
+        //{
+        //    ServiceResult<TokenResponse> serviceResult = new ServiceResult<TokenResponse>();
+
+        //    try
+        //    {
+        //        BankCredentials credentials = new BankCredentials();
+        //        credentials.ClientId = _configuration.GetSection("CredenciaisItau:client_id").Value;
+        //        credentials.ClientSecret = _configuration.GetSection("CredenciaisItau:client_secret").Value;
+
+        //        string getAccessToken = await _helper.GetAuthenticationToken(credentials);
+        //        AccessToken accessToken = JsonSerializer.Deserialize<AccessToken>(getAccessToken);
+
+        //        serviceResult.Result = TokenResponse.CreateNewToken(accessToken.access_token, accessToken.expires_in);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        serviceResult.Error = ex.Message;
+        //        throw ex;
+        //    }
+
+        //    return serviceResult;
+        //}
+
         public async Task<ServiceResult<TokenResponse>> GetToken()
         {
             ServiceResult<TokenResponse> serviceResult = new ServiceResult<TokenResponse>();
 
-            BankCredentials credentials = new BankCredentials();
-            credentials.ClientId = _configuration.GetSection("CredenciaisItau:client_id").Value;
-            credentials.ClientSecret = _configuration.GetSection("CredenciaisItau:client_secret").Value;
+            try
+            {
+                BankCredentials credentials = new BankCredentials
+                {
+                    ClientId = _configuration.GetSection("CredenciaisItau:client_id").Value,
+                    ClientSecret = _configuration.GetSection("CredenciaisItau:client_secret").Value
+                };
 
-            string getAccessToken = await _helper.GetAuthenticationToken(credentials);
-            AccessToken accessToken = JsonSerializer.Deserialize<AccessToken>(getAccessToken);
+                string getAccessToken = await GetAuthenticationToken(credentials);
+                AccessToken accessToken = JsonSerializer.Deserialize<AccessToken>(getAccessToken);
 
-            serviceResult.Result = TokenResponse.CreateNewToken(accessToken.access_token, accessToken.expires_in);
+                serviceResult.Result = TokenResponse.CreateNewToken(accessToken.access_token, accessToken.expires_in);
+            }
+            catch (Exception ex)
+            {
+                serviceResult.Error = ex.Message;
+                throw;
+            }
+
             return serviceResult;
         }
 
+        public async Task<string> GetAuthenticationToken(BankCredentials credentials)
+        {
+            string url = _configuration.GetSection("UrlsPixItau:authentication").Value;
+
+            try
+            {
+                // Carregar o certificado PFX
+                string pfxFilePath = _configuration.GetSection("CredenciaisItau:certificado").Value;
+                string pfxPassword = _configuration.GetSection("CredenciaisItau:password").Value;
+                var certificate = new X509Certificate2(pfxFilePath, pfxPassword);
+
+                var handler = new HttpClientHandler();
+                handler.ClientCertificates.Add(certificate);
+
+                using var client = new HttpClient(handler);
+
+                // Configurar os cabeçalhos da requisição
+                client.DefaultRequestHeaders.Add("x-itau-flowID", "1");
+                client.DefaultRequestHeaders.Add("x-itau-correlationID", "2");
+
+                // Construir o corpo da requisição com client_id e client_secret
+                var requestData = new FormUrlEncodedContent(new[]
+                {
+                new KeyValuePair<string, string>("grant_type", "client_credentials"),
+                new KeyValuePair<string, string>("client_id", credentials.ClientId),
+                new KeyValuePair<string, string>("client_secret", credentials.ClientSecret)
+                });
+
+                var response = await client.PostAsync(url, requestData);
+
+                // Se o código de status for bem-sucedido, retorne o corpo da resposta.
+                // Caso contrário, lance uma exceção.
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadAsStringAsync();
+                }
+                else
+                {
+                    var errorResponse = await response.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Error {(int)response.StatusCode}: {errorResponse}");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to get authentication token: {ex.Message}", ex);
+            }
+        }
         public async Task<ServiceResult<PagamentoResponse>> CancelamentoPix(CancelamentoRequest request)
         {
             ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
+
+
+
+
             if (request.IdPagamento == 1)
             {
                 _serviceResult.Mensagens = new List<string>() { "Cobrança PIX cancelada com sucesso." };
                 _serviceResult.Result = new PagamentoResponse()
                 {
                     IdEmpresa = 1,
-                    Pagamento ="1", //verificar de onde vem esse valor
+                    Pagamento = "1", //verificar de onde vem esse valor
                     Empresa = "DEICMAR BANDEIRANTES",
                     Processo = 1, //vericiar que valor seria esse
                     NumeroTitulo = request.NumeroTitulo,
@@ -174,21 +255,37 @@ namespace Microled.Pix.Application
         public async Task<ServiceResult<PagamentoResponse>> ConsultaPix(string txId, string token)
         {
             ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
-            _serviceResult.Result = new PagamentoResponse()
+            BankCredentials credentials = new BankCredentials();
+
+            try
             {
-                IdEmpresa = 1,
-                Pagamento = txId, //verificar de onde vem esse valor
-                Empresa = "DEICMAR BANDEIRANTES",
-                Processo = 1, //vericiar que valor seria esse
-                NumeroTitulo = txId,
-                StatusPagamento = "CANCELADA",
-                QRCode_Imagem_base64 = GenerateQRCodeBase64("http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA"),
-                Pix_Link = "http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
-                QRCode_Texto_EMV = "http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
-                ValorRet = 5,
-                Emails_Aviso_Pagamento = new List<string>() { "roger@microled.com.br" }
-            };
-            return _serviceResult;
+                if (!string.IsNullOrEmpty(token))
+                {
+                    var response = await _helper.ConsultarPix(txId, token);
+                    if (!string.IsNullOrEmpty(response.Error))
+                    {
+                        _serviceResult.Error = response.Error;
+                    }
+                    else
+                    {
+                        
+                    }
+
+                }
+                else
+                {
+                    _serviceResult.Mensagens = new List<string>() { "Token Invalido" };
+
+                }
+
+                return _serviceResult;
+            }
+            catch (Exception ex)
+            {
+                _serviceResult.Error = ex.Message;
+                _serviceResult.Mensagens = new List<string>() { "Erro ao fazer a requisicao para API Bradesco:" + ex.Message };
+                return _serviceResult;
+            }
         }
 
         public async Task<ServiceResult<string>> BaixaTituloPix(string txId)
@@ -198,6 +295,53 @@ namespace Microled.Pix.Application
             var ret = await _helper.BaixaTitulo(txId, token);
 
             return ret;
+        }
+
+        public async Task<ServiceResult<PagamentoResponse>> ListaPix(string dataInicio, string dataFim, string token)
+        {
+            ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
+            BankCredentials credentials = new BankCredentials();
+
+            try
+            {
+                if (!string.IsNullOrEmpty(token))
+                {
+                    var response = await _helper.ListaPix(dataInicio, dataFim, token);
+                    if (!string.IsNullOrEmpty(response.Error))
+                    {
+                        _serviceResult.Error = response.Error;
+                    }
+                    else
+                    {
+                        //_serviceResult.Result = PagamentoResponse.CriarPagamento(1,
+                        //                                                    response.Result.txid,
+                        //                                                    response.Result.recebedor.nome,
+                        //                                                    1,
+                        //                                                    request.Numero_Titulo,
+                        //                                                    response.Result.status,
+                        //                                                    GenerateQRCodeBase64(response.Result.pixCopiaECola),
+                        //                                                    response.Result.loc.location,
+                        //                                                    response.Result.pixCopiaECola,
+                        //                                                    Convert.ToDecimal(response.Result.valor.original),
+                        //                                                    request.Emails_Aviso_Pagamento
+                        //                                                    );
+                    }
+
+                }
+                else
+                {
+                    _serviceResult.Mensagens = new List<string>() { "Token Invalido" };
+
+                }
+
+                return _serviceResult;
+            }
+            catch (Exception ex)
+            {
+                _serviceResult.Error = ex.Message;
+                _serviceResult.Mensagens = new List<string>() { "Erro ao fazer a requisicao para API Bradesco:" + ex.Message };
+                return _serviceResult;
+            }
         }
     }
 }

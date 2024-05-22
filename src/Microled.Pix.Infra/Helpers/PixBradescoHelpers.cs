@@ -25,7 +25,7 @@ namespace Microled.Pix.Infra.Helpers
             _configuration = configuration;
 
             var handler = new HttpClientHandler();
-            var certPath = @"C:\dev\ITAU\certificado\BANDEIRANTES_DEICMAR_LOGISTICA_INTEGRADA_S_A_58188756000196_1677184234793938700.pfx";
+            var certPath = @"";
             var certificate = new X509Certificate2(certPath, "12345678");
             handler.ClientCertificates.Add(certificate);
 
