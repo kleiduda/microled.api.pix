@@ -295,5 +295,50 @@ namespace Microled.Pix.Infra.Helpers
             }
         }
 
+        public async Task<ServiceResult<ResponseBodyItau>> ConsultarPix(string txId, string token)
+        {
+            ServiceResult<ResponseBodyItau> _serviceResult = new ServiceResult<ResponseBodyItau>();
+            string _txtId = MontarTxtID(txId);
+            string url = _configuration.GetSection("UrlsPixItau:consulta_pix").Value + "/" + _txtId;
+
+            try
+            {
+                // Adicionar o token ao header de autorização
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                // Montar a URL com os parâmetros de query
+                var response = await _httpClient.GetAsync(url);
+
+                var responseBody = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"HTTP Error: {response.StatusCode}");
+                    Console.WriteLine($"Response Body: {responseBody}");
+                    _serviceResult.Error = responseBody;
+                    return _serviceResult;
+                }
+
+                ResponseBodyItau responseData = JsonSerializer.Deserialize<ResponseBodyItau>(responseBody);
+
+                _serviceResult.Result = responseData;
+
+                return _serviceResult;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception: {ex.Message}");
+                _serviceResult.Error = ex.Message;
+                return _serviceResult;
+            }
+        }
+
+        private string MontarTxtID(string txId)
+        {
+            const string baseString = "banddeicpix";
+            int neededLength = 35 - baseString.Length;
+            string formattedNumber = txId.PadLeft(neededLength, '0');
+            return baseString + formattedNumber;
+        }
+
     }
 }
