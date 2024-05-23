@@ -16,6 +16,8 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
+using SkiaSharp;
+using ZXing.SkiaSharp.Rendering;
 
 namespace Microled.Pix.Application
 {
@@ -221,32 +223,21 @@ namespace Microled.Pix.Application
 
         public string GenerateQRCodeBase64(string data)
         {
-            var qrCodeWriter = new BarcodeWriterPixelData
+            var barcodeWriter = new BarcodeWriter<SKBitmap>
             {
                 Format = BarcodeFormat.QR_CODE,
                 Options = new ZXing.Common.EncodingOptions
                 {
                     Height = 300,
                     Width = 300
-                }
+                },
+                Renderer = new SKBitmapRenderer()
             };
 
-            var pixelData = qrCodeWriter.Write(data);
-            using var bitmap = new Bitmap(pixelData.Width, pixelData.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            using var bitmap = barcodeWriter.Write(data);
+            using var image = SKImage.FromBitmap(bitmap);
             using var ms = new MemoryStream();
-            var bitmapData = bitmap.LockBits(new Rectangle(0, 0, pixelData.Width, pixelData.Height),
-               System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
-            try
-            {
-                System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0,
-                    pixelData.Pixels.Length);
-            }
-            finally
-            {
-                bitmap.UnlockBits(bitmapData);
-            }
-
-            bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+            image.Encode(SKEncodedImageFormat.Png, 100).SaveTo(ms);
             var base64String = Convert.ToBase64String(ms.ToArray());
 
             return base64String;
@@ -268,7 +259,20 @@ namespace Microled.Pix.Application
                     }
                     else
                     {
-                        
+                        List<string> emails = new List<string>();
+                        emails.Add("");
+                        _serviceResult.Result = PagamentoResponse.CriarPagamento(1,
+                                                                            response.Result.txid,
+                                                                            response.Result.recebedor.nome,
+                                                                            1,
+                                                                            txId,
+                                                                            response.Result.status,
+                                                                            GenerateQRCodeBase64(response.Result.pixCopiaECola),
+                                                                            response.Result.loc.location,
+                                                                            response.Result.pixCopiaECola,
+                                                                            Convert.ToDecimal(response.Result.valor.original),
+                                                                            emails
+                                                                            );
                     }
 
                 }
@@ -283,7 +287,7 @@ namespace Microled.Pix.Application
             catch (Exception ex)
             {
                 _serviceResult.Error = ex.Message;
-                _serviceResult.Mensagens = new List<string>() { "Erro ao fazer a requisicao para API Bradesco:" + ex.Message };
+                _serviceResult.Mensagens = new List<string>() { "Erro ao fazer a requisicao para API ITAU:" + ex.Message };
                 return _serviceResult;
             }
         }
