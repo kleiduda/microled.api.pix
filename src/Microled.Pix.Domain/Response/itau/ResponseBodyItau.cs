@@ -25,7 +25,12 @@
     public class Devedor
     {
         public string cpf { get; set; }
+        public string cnpj { get; set; }
         public string nome { get; set; }
+        public string logradouro { get; set; }
+        public string cidade { get; set; }
+        public string Uf { get; set; }
+        public string Cep { get; set; }
     }
 
     public class Recebedor

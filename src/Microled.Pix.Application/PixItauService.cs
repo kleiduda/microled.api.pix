@@ -4,17 +4,10 @@ using Microled.Pix.Domain.Response;
 using Microled.Pix.Domain.ViewModel;
 using Microled.Pix.Infra.Helpers.Interfaces;
 using Microsoft.Extensions.Configuration;
-using Microled.Pix.Domain.Request.Bradesco;
-using System.Buffers.Text;
-using System.Drawing;
-using System.Net.NetworkInformation;
 using ZXing;
-using Microled.Pix.Domain.Enum;
 using Microled.Pix.Domain.Request.Itau;
 using Microled.Pix.Domain.Request.Itau.Cancelamento;
-using System.Text.Json.Serialization;
 using System.Text.Json;
-using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using SkiaSharp;
 using ZXing.SkiaSharp.Rendering;
@@ -187,62 +180,53 @@ namespace Microled.Pix.Application
         public async Task<ServiceResult<PagamentoResponse>> CancelamentoPix(CancelamentoRequest request)
         {
             ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
+            BankCredentials credentials = new BankCredentials();
 
-
-
-
-            if (request.IdPagamento == 1)
+            try
             {
-                _serviceResult.Mensagens = new List<string>() { "Cobrança PIX cancelada com sucesso." };
-                _serviceResult.Result = new PagamentoResponse()
+                if (!string.IsNullOrEmpty(request.token))
                 {
-                    IdEmpresa = 1,
-                    Pagamento = "1", //verificar de onde vem esse valor
-                    Empresa = "DEICMAR BANDEIRANTES",
-                    Processo = 1, //vericiar que valor seria esse
-                    NumeroTitulo = request.NumeroTitulo,
-                    StatusPagamento = "CANCELADA",
-                    QRCode_Imagem_base64 = GenerateQRCodeBase64("http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA"),
-                    Pix_Link = "http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
-                    QRCode_Texto_EMV = "http://h.itau.com.br/qr/v2/1eb17258-88ec-4078-80e4-03ae10fb594f5204000053039865406100.005802BR5924CONTA",
-                    ValorRet = 5,
-                    Emails_Aviso_Pagamento = new List<string>() { "roger@microled.com.br" }
-                };
-            }
-            else if (request.IdPagamento == 2)
-            {
-                _serviceResult.Error = "Erro no cancelamento do Pix";
-            }
-            else
-            {
-                _serviceResult.Mensagens = new List<string>() { "Pix nao encontrado!" };
-            }
-
-            return _serviceResult;
-        }
-
-        public string GenerateQRCodeBase64(string data)
-        {
-            var barcodeWriter = new BarcodeWriter<SKBitmap>
-            {
-                Format = BarcodeFormat.QR_CODE,
-                Options = new ZXing.Common.EncodingOptions
+                    var response = await _helper.CancelarPix(request);
+                    if (!string.IsNullOrEmpty(response.Error))
+                    {
+                        _serviceResult.Error = response.Error;
+                    }
+                    else
+                    {
+                        List<string> emails = new List<string>();
+                        emails.Add("");
+                        _serviceResult.Result = PagamentoResponse.CriarPagamento(1,
+                                                                            response.Result.txid,
+                                                                            response.Result.recebedor.nome,
+                                                                            1,
+                                                                            request.IdPagamento.ToString(),
+                                                                            response.Result.status,
+                                                                            GenerateQRCodeBase64(response.Result.pixCopiaECola),
+                                                                            response.Result.loc.location,
+                                                                            response.Result.pixCopiaECola,
+                                                                            Convert.ToDecimal(response.Result.valor.original),
+                                                                            emails
+                                                                            );
+                    }
+                    
+                }
+                else
                 {
-                    Height = 300,
-                    Width = 300
-                },
-                Renderer = new SKBitmapRenderer()
-            };
+                    _serviceResult.Mensagens = new List<string>() { "Token Invalido" };
 
-            using var bitmap = barcodeWriter.Write(data);
-            using var image = SKImage.FromBitmap(bitmap);
-            using var ms = new MemoryStream();
-            image.Encode(SKEncodedImageFormat.Png, 100).SaveTo(ms);
-            var base64String = Convert.ToBase64String(ms.ToArray());
+                }
 
-            return base64String;
+                return _serviceResult;
+            }
+            catch (Exception ex)
+            {
+                _serviceResult.Error = ex.Message;
+                _serviceResult.Mensagens = new List<string>() { "Erro ao fazer a requisicao para API ITAU:" + ex.Message };
+
+                return _serviceResult;
+            }
+
         }
-
         public async Task<ServiceResult<PagamentoResponse>> ConsultaPix(string txId, string token)
         {
             ServiceResult<PagamentoResponse> _serviceResult = new ServiceResult<PagamentoResponse>();
@@ -291,7 +275,6 @@ namespace Microled.Pix.Application
                 return _serviceResult;
             }
         }
-
         public async Task<ServiceResult<string>> BaixaTituloPix(string txId)
         {
             string token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6WyJVc3VhcmlvVGVzdGUiLCJVc3VhcmlvVGVzdGUiXSwianRpIjoiOGJiMDgwNWZhMzk0NGFmNGE4ZWViYzAyODk0Yjc0MTUiLCJuYmYiOjE2OTA0NjE5MTQsImV4cCI6MTY5MDQ5MDcxNCwiaWF0IjoxNjkwNDYxOTE0fQ.NcJ7urfh5vQwWWip8rf07JhGO_HZVNTp1LCXgJ8rk7v5YOWVYiL43DilYd26tlzyQO9iNfILB-dTKJk2DQU4RSDEkwoiC8hY4oBPpUl9RYc-acSBWpUjBlMOKyyIOQnI5oXrKSOA2JABa6uwMx1338gYSzUcq9jp6Qe9s9DzhNREmpJWOOXwB5crHNlG2LtG91yRC5M3xGU0fIRNVoArBGMnu7rJMNhKlDpARm9SpCwASU2TLVlEoRvS9ZjEsdI5RWIVaTZe5xWmBjSTn8NijYsLPnXtWGHRVpMFKrGU74xfzTo2KJlUXaUkiUEDtbDTV-zUC0zzkMEw-z-9Iu3wGg";
@@ -346,6 +329,28 @@ namespace Microled.Pix.Application
                 _serviceResult.Mensagens = new List<string>() { "Erro ao fazer a requisicao para API Bradesco:" + ex.Message };
                 return _serviceResult;
             }
+        }
+
+        public string GenerateQRCodeBase64(string data)
+        {
+            var barcodeWriter = new BarcodeWriter<SKBitmap>
+            {
+                Format = BarcodeFormat.QR_CODE,
+                Options = new ZXing.Common.EncodingOptions
+                {
+                    Height = 300,
+                    Width = 300
+                },
+                Renderer = new SKBitmapRenderer()
+            };
+
+            using var bitmap = barcodeWriter.Write(data);
+            using var image = SKImage.FromBitmap(bitmap);
+            using var ms = new MemoryStream();
+            image.Encode(SKEncodedImageFormat.Png, 100).SaveTo(ms);
+            var base64String = Convert.ToBase64String(ms.ToArray());
+
+            return base64String;
         }
     }
 }

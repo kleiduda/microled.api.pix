@@ -1,7 +1,9 @@
 ﻿using Microled.Pix.Domain.Request.Bradesco;
 using Microled.Pix.Domain.Request.Itau;
+using Microled.Pix.Domain.Request.Itau.Cancelamento;
 using Microled.Pix.Domain.Response;
 using Microled.Pix.Domain.Response.itau;
+using Microled.Pix.Domain.Response.itau.cancelamento;
 using Microled.Pix.Domain.Response.itau.lista;
 using Microled.Pix.Domain.ViewModel;
 using Microled.Pix.Infra.Helpers.Interfaces;
@@ -332,6 +334,47 @@ namespace Microled.Pix.Infra.Helpers
             }
         }
 
+        public async Task<ServiceResult<ResponseBodyItau>> CancelarPix(CancelamentoRequest request)
+        {
+            ServiceResult<ResponseBodyItau> _serviceResult = new ServiceResult<ResponseBodyItau>();
+            string _txtId = MontarTxtID(request.IdPagamento.ToString());
+            string url = _configuration.GetSection("UrlsPixItau:cancela_pix").Value + "/" + _txtId;
+
+            try
+            {
+                // Adicionar o token ao header de autorização
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", request.token);
+
+                var jsonString = JsonSerializer.Serialize(new { status = "REMOVIDA_PELO_USUARIO_RECEBEDOR" });
+                // Montar o conteúdo do corpo da requisição (caso seja necessário)
+                var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
+
+                // Fazer a solicitação PATCH
+                var response = await _httpClient.PatchAsync(url, content);
+
+                var responseBody = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"HTTP Error: {response.StatusCode}");
+                    Console.WriteLine($"Response Body: {responseBody}");
+                    _serviceResult.Error = responseBody;
+                    return _serviceResult;
+                }
+
+                ResponseBodyItau responseData = JsonSerializer.Deserialize<ResponseBodyItau>(responseBody);
+
+                _serviceResult.Result = responseData;
+
+                return _serviceResult;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception: {ex.Message}");
+                _serviceResult.Error = ex.Message;
+                return _serviceResult;
+            }
+        }
+
         private string MontarTxtID(string txId)
         {
             const string baseString = "banddeicpix";
@@ -339,6 +382,7 @@ namespace Microled.Pix.Infra.Helpers
             string formattedNumber = txId.PadLeft(neededLength, '0');
             return baseString + formattedNumber;
         }
+
 
     }
 }
